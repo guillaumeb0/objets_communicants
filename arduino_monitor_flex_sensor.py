@@ -13,7 +13,8 @@ RANGE_MAX = 32
 SERIAL_PORT = '/dev/ttyACM0'
 SERIAL_BAUDRATE = 9600
     # Params socket
-UDP_IP = "172.16.104.78"
+#UDP_IP = "172.16.104.78"
+UDP_IP = "127.0.0.1"
 UDP_PORT = 5005
 
 # Params logger
