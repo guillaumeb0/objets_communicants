@@ -3,8 +3,6 @@
 import socket
 import threading
 import signal
-import sys
-import os
 import logging
 
 import cv2
@@ -24,7 +22,6 @@ LOG_FILE = '/tmp/myLogServer.log'
 
 class CamServer(threading.Thread):
     # Flag de fin de thread
-    terminated = False
 
     def __init__(self, threadID, name, host, port, max_user = 1):
         threading.Thread.__init__(self)
@@ -33,6 +30,7 @@ class CamServer(threading.Thread):
         self.host = host
         self.port = port
         self.max_user = max_user
+        self.terminated = False
 
     def run(self):
         print "Starting " + self.name
