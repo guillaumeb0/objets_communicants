@@ -2,6 +2,9 @@
 #-*- encoding: UTF-8 -*-
 import socket
 import threading
+import signal
+import sys
+import os
 import logging
 
 import cv2
@@ -9,17 +12,14 @@ import numpy
 
 # Definitions des constantes
 LOG_FILE = '/tmp/myLogServer.log'
-    # Params socket 
-HOST = "0.0.0.0"
-CAMERA_PORT = 5007
 
     # Params logger
-logger = logging.getLogger('serveur')
-logger.setLevel(logging.DEBUG)
-fh = logging.FileHandler(LOG_FILE)
-formatter = logging.Formatter('%(asctime)s - %(message)s')
-fh.setFormatter(formatter)
-logger.addHandler(fh)
+#logger = logging.getLogger('serveur')
+#logger.setLevel(logging.DEBUG)
+#fh = logging.FileHandler(LOG_FILE)
+#formatter = logging.Formatter('%(asctime)s - %(message)s')
+#fh.setFormatter(formatter)
+#logger.addHandler(fh)
 
 
 class CamServer(threading.Thread):
@@ -81,4 +81,21 @@ class CamServer(threading.Thread):
                         print e.errno
 
     def terminate(self):
-        self.terminated = True 
+        self.terminated = True
+
+if __name__ == '__main__':
+    # Demarrage du serveur de capture
+    host = '0.0.0.0'
+    port = 5008
+    serv = CamServer('1', 'Thread-1', host, port)
+    serv.start()
+
+
+    # Def d'un handler pour gestion de sortie avec Ctrl+c
+    def handler(signum, frame):
+        serv.terminate()
+    # Affectation du handler pour un SIGINT reçu
+    signal.signal(signal.SIGINT, handler)
+    # Sans pause ici, le thread principal étant terminé,
+    # il ne reçoit plus de signal
+    signal.pause()
