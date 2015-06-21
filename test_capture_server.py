@@ -39,8 +39,7 @@ while True:
             continue
         msg = jpeg.tostring()
         try:
-            sock.send(str(len(msg)).zfill(5))
-            sock.send(msg)
+            sock.send(str(len(msg)).zfill(5) + msg)
         except socket.error as e:
             if e.errno in (32, 104):
                 print e.strerror
