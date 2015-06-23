@@ -44,44 +44,48 @@ void loop()
     }
     else {
       //Position of X in the reader string.
-      int x_pos = reader.indexOf("X");      
+      int x_pos = reader.indexOf("X");  
+
+      //Value of X
+      String x_value = reader.substring(x_pos+1);        
+      
+      if (x_value.toInt() > 0) {        
+        //Add to current_x_angle    
+        current_x_angle += x_value.toInt();
+        
+        //Bound Maximum and minimum value for angle x
+        if (current_x_angle > 180) {
+          current_x_angle = 180;
+        }
+        else if (current_x_angle < 0) {
+          current_x_angle = 0;
+        }
+        
+        //Write the angle
+        servoX.write(current_x_angle);  
+      }     
       
       //Position of Y in the reader string.
-      int y_pos = reader.indexOf("Y");     
-      
-      //Value of X
-      String x_value = reader.substring(x_pos+1,y_pos);  
+      int y_pos = reader.indexOf("Y");  
       
       //Value of Y
-      String y_value = reader.substring(y_pos+1);    
+      String y_value = reader.substring(y_pos+1);  
       
-      //Move x servo     
-      current_x_angle += x_value.toInt();
-      
-      //Bound Maximum and minimum value for angle x
-      if (current_x_angle > 180) {
-        current_x_angle = 180;
+      if (y_value.toInt() > 0) {                  
+        //Add to current_y_angle       
+        current_y_angle += y_value.toInt();
+        
+        //Bound Maximum and minimum value for angle y
+        if (current_y_angle > 180) {
+          current_y_angle = 180;
+        }
+        else if (current_y_angle < 0) {
+          current_y_angle = 0;
+        }
+        
+        //Write the angle
+        servoY.write(current_y_angle);      
       }
-      else if (current_x_angle < 0) {
-        current_x_angle = 0;
-      }
-      
-      //Write the angle
-      servoX.write(current_x_angle);      
-      
-      //Move y servo      
-      current_y_angle += y_value.toInt();
-      
-      //Bound Maximum and minimum value for angle y
-      if (current_y_angle > 180) {
-        current_y_angle = 180;
-      }
-      else if (current_y_angle < 0) {
-        current_y_angle = 0;
-      }
-      
-      //Write the angle
-      servoY.write(current_y_angle);      
     }
   }   
   else {
