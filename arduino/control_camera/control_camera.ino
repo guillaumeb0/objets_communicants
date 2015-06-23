@@ -36,9 +36,11 @@ void loop()
   if (Serial.available() > 0) {
     String reader = Serial.readString();
       
-    if (reader == "reset") {      
-      servoX.write(90);
-      servoY.write(90);
+    if (reader == "reset") {  
+      current_x_angle = 90; 
+      current_y_angle = 90;       
+      servoX.write(current_x_angle);
+      servoY.write(current_y_angle);
     }
     else {
       //Position of X in the reader string.
@@ -55,10 +57,30 @@ void loop()
       
       //Move x servo     
       current_x_angle += x_value.toInt();
+      
+      //Bound Maximum and minimum value for angle x
+      if (current_x_angle > 180) {
+        current_x_angle = 180;
+      }
+      else if (current_x_angle < 0) {
+        current_x_angle = 0;
+      }
+      
+      //Write the angle
       servoX.write(current_x_angle);      
       
       //Move y servo      
       current_y_angle += y_value.toInt();
+      
+      //Bound Maximum and minimum value for angle y
+      if (current_y_angle > 180) {
+        current_y_angle = 180;
+      }
+      else if (current_y_angle < 0) {
+        current_y_angle = 0;
+      }
+      
+      //Write the angle
       servoY.write(current_y_angle);      
     }
   }   
