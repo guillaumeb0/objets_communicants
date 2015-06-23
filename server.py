@@ -30,30 +30,7 @@ logger.addHandler(fh)
 def main():
     # Creation list des arduino dispo
     arduino_dict = dict()
-    # Helper pour closure de délétion d'un item dans arduino_dict
-    def del_helper(arduino_dict, key):
-        print('entrée helper')
-        print('entrée helper')
-        print('entrée helper')
-        print('entrée helper')
-        print(key)
-        print('break')
-        print('{0}'.format(time.time() - arduino_dict[key]['last_recv_msg']))
-        print('break')
-        print(arduino_dict)
-        print('break')
-        del(arduino_dict[key])
-        print('break')
-        print(arduino_dict)
-        print('fin helper')
-        print('fin helper')
-        print('fin helper')
-        print('fin helper')
-        print('\r\n')
-        print('\r\n')
-        print('\r\n')
-        print('\r\n')
-        
+
     # Création d'une socket udp
     sock = socket.socket(socket.AF_INET,
                           socket.SOCK_DGRAM)
@@ -78,10 +55,21 @@ def main():
     while isRunning:
         # Reception du datagramme
         try:
-            data, addr = sock.recvfrom(1024)
-        except socket.timeout:
             print('alive:')
             print(arduino_dict)
+            # On supprime de notre topologie les devices qui n'ont pas envoyés de
+            # messages depuis trop longtps
+            if len(arduino_dict) > 0:
+                tmp = dict()
+                current_time = time.time()
+                for k, v in arduino_dict.items():
+                    if current_time - v['last_recv_msg'] > 10:
+                        continue
+                    tmp[k] = v
+                arduino_dict = tmp
+            # Reception de datagramme
+            data, addr = sock.recvfrom(1024)
+        except socket.timeout:
             continue
         except socket.error as e:
             if e.errno == 4:
@@ -102,21 +90,25 @@ def main():
             print('entré if not arduino_dict.has_key')
             arduino_dict[msg.sender_id] = {
                     'ip' : addr[0],
+                    'port' : addr[1],
                     'pdu' : msg, 
-#                    'timer': CustomTimer(10, lambda : del_helper(arduino_dict, msg.sender_id)),
                     'last_recv_msg' : time.time() }
-#            arduino_dict[msg.sender_id]['timer'].start()
-#        else:
-#            arduino_dict[msg.sender_id]['timer'].reset(10)
-#        # Logique des actions à effecuter en fonction du message
-#        if msg.pdu_type == PduType.CMD:
-#            # Recup de la position du premier servo trouvé dans la liste
-#            tmp_res = [x for x, v in arduino_dict.items() if v['pdu'].sender_type == DeviceType.SERVO_ENGINE]
-#            if not tmp_res:
-#                continue
-#            servo_id = tmp_res[0]
-        print(msg)
-            
+        else:
+            arduino_dict[msg.sender_id]['last_recv_msg'] = time.time()
+        # Logique des actions à effecuter en fonction du message
+        if msg.pdu_type == PduType.CMD:
+            # Recup de la position du premier servo trouvé dans la liste
+            tmp_res = [x for x, v in arduino_dict.items() if v['pdu'].sender_type == DeviceType.SERVO_ENGINE]
+            if not tmp_res:
+                continue
+            servo_id = tmp_res[0]
+            addr = arduino_dict[servo_id]['ip']
+            port = arduino_dict[servo_id]['port']
+            #msg = arduino_dict[servo_id]['pdu']
+            print('break')
+            print(msg.content)
+            print('break')
+            sock.sendto(msg.raw_pdu, (addr, port))
 
 if __name__ == '__main__':
     main()

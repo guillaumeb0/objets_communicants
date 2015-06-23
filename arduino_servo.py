@@ -14,7 +14,7 @@ LOG_FILE = '/tmp/myLog.log'
 SERIAL_PORT = '/dev/ttyACM0'
 SERIAL_BAUDRATE = 9600
     # Params socket
-SERVER_ADDR = '192.168.100.15'
+SERVER_ADDR = '192.168.1.19'
 SERVER_PORT = 5005
 #UDP_IP = "172.16.104.78"
 UDP_IP = '0.0.0.0'
@@ -52,10 +52,12 @@ while True:
     # Recup des données du réseau
     try:
         data, addr = sock.recvfrom(1024)
+        print('111111111111')
         print(data)
         print(data)
         print(data)
         print(data)
+        print('111111111')
         try:
             msg = Pdu(data)
         # TODO: propreriser
@@ -63,16 +65,28 @@ while True:
             print e.message
             continue
         if msg.content.lower() == 'left':
+            print('222222222')
+            print('X-20Y0')
+            print('222222222')
             s.write('X-20Y0')
         elif msg.content.lower() == 'up':
+            print('222222222')
+            print('X0Y20')
+            print('222222222')
             s.write('X0Y20')
         elif msg.content.lower() == 'right':
+            print('222222222')
+            print('X20Y0')
+            print('222222222')
             s.write('X20Y0')
         elif msg.content.lower() == 'down':
+            print('222222222')
+            print('X0Y-20')
+            print('222222222')
             s.write('X0Y-20')
-        s.write(msg.content)
+        else:
+            logger.warning('incorrect msg: {0}'.format(msg.content))
         print msg.pdu_type
-        print msg.msg
     except socket.timeout as e:
         continue
     except serial.SerialTimeoutException:

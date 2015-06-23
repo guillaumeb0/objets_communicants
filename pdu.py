@@ -38,7 +38,7 @@ class Pdu():
                 self.sender_type = DeviceType.LIGHT
             self.content = tmp[2]
         except (ValueError, IndexError):
-            raise PduException('Bad payload format (content)')
+            raise PduException('Bad payload format')
 
     def __str__(self):
         return '{0}:{1}:{2}'.format(str(self.sender_id).zfill(2),
