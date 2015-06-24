@@ -19,6 +19,8 @@ class Pdu():
             self.pdu_type = PduType.LOG
         elif raw_pdu['type'] == 1:
             self.pdu_type = PduType.CMD
+        elif raw_pdu['type'] == 12
+            self.pdu_type = PduType.PING
         else:
             raise PduException('Unknown pdu type')
         # Cohérence Python 2.7: On cast l'unicode reçu en utf-8
@@ -47,6 +49,7 @@ class Pdu():
 class PduType(Enum):
     LOG = 0
     CMD = 1
+    PING = 2
 
 class DeviceType(Enum):
     FLEX_SENSOR = 0

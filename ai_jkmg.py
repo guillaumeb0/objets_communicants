@@ -1,16 +1,18 @@
+#-*- encoding: UTF-8 -*-
+from pdu import Pdu, PduType, DeviceType, PduException
 import time
 
-class Object:
+class Node:
     def __init__(self, obj_id, value, obj_time):
-        self.id = obj_id
+        self.node_id = obj_id
         self.value = value
         self.time = obj_time
 
 
 class Link:
-    def __init__(self, object1, objects2):
-        self.object1 = object1
-        self.object2 = objects2
+    def __init__(self, node1, objects2):
+        self.node1 = node1
+        self.node2 = objects2
         self.weight = 0
 
 
@@ -48,11 +50,13 @@ class AiJkmg:
                 if i+1 < n:
                     # Check object existence
                     # TODO : Does this work ???
-                    if not any(link.object1.id == keys and link.object1.id == keys[(i + 1)] in link for link in self.graph.links):
+                    #if [link for link in self.graph.links if link.node1.node_id == keys[i] and link.node2.node_id == keys[(i + 1)]:
                         # TODO : Get value and time of each object before creating the link
-                        object1 = Object(keys[i], obj_value, object_dict[keys[i]].["last_recv_msg"])
-                        object2 = Object(keys[(i + 1)], obj_value, object_dict[keys[(i + 1)]].["last_recv_msg"])
-                        self.graph.add_link(Link(object1, object2))
+                    for link in self.graph.links:
+                        if not (link.node1.node_id == key[i] and link.node2.node_id == keys[i+1]):
+                            node1 = Node(keys[i], obj_value, object_dict[keys[i]]["last_recv_msg"])
+                            node2 = Node(keys[(i + 1)], obj_value, object_dict[keys[(i + 1)]]["last_recv_msg"])
+                            self.graph.add_link(Link(node1, node2))
 
 
     def graph_remove(self, object_dict):
@@ -64,8 +68,8 @@ class AiJkmg:
         """
         for link in self.graph.links:
             # Remove link not present in the object_dict with a delta time superior to the threshold time defined
-            if (link.object1.id not in object_dict and (link.object1.time - time.time()) > self.threshold_time) or \
-                    (link.object2.id not in object_dict and (link.object2.time - time.time()) > self.threshold_time):
+            if (link.node1.node_id not in object_dict and (link.node1.time - time.time()) > self.threshold_time) or \
+                    (link.node2.node_id not in object_dict and (link.node2.time - time.time()) > self.threshold_time):
                 self.graph.remove_link(link)
 
     def graph_update(self, object_dict):
@@ -91,10 +95,10 @@ class AiJkmg:
 
         # Add object to the list when the link weight is superior to the threshold
         for link in self.graph.links:
-            if link.object1 == object0 and link.weight > self.threshold_weight:
-                objects.append(link.object1.id)
-            elif link.object2 == object0 and link.weight > self.threshold_weight:
-                objects.append(link.object2.id)
+            if link.node1 == object0 and link.weight > self.threshold_weight:
+                objects.append(link.node1.node_id)
+            elif link.node2 == object0 and link.weight > self.threshold_weight:
+                objects.append(link.node2.node_id)
 
         return objects
 
@@ -107,7 +111,7 @@ class AiJkmg:
         self.graph_update(object_dict)  # Update the graph
 
         for link in self.graph.links:
-            link.weight += self.epsilon * link.object1.value * link.object2.value - self.alpha
+            link.weight += self.epsilon * link.node1.value * link.node2.value - self.alpha
 
     def cheat(self):
         """
@@ -117,5 +121,5 @@ class AiJkmg:
         :return: None.
         """
         for link in self.graph.links:
-            if (link.object1.id == "11" and link.object2 in ("02", "04")) or (link.object2.id == "11" and link.object1 in ("02", "04")):
+            if (link.node1.node_id == "11" and link.node2 in ("02", "04")) or (link.node2.node_id == "11" and link.node1 in ("02", "04")):
                 link.weight += self.epsilon * 100 * self.threshold_weight

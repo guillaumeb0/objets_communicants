@@ -65,25 +65,15 @@ while True:
             print e.message
             continue
         if msg.content.lower() == 'left':
-            print('222222222')
-            print('X-20Y0')
-            print('222222222')
             s.write('X-20Y0')
         elif msg.content.lower() == 'up':
-            print('222222222')
-            print('X0Y20')
-            print('222222222')
-            s.write('X0Y20')
+            s.write('X0Y-20')
         elif msg.content.lower() == 'right':
-            print('222222222')
-            print('X20Y0')
-            print('222222222')
             s.write('X20Y0')
         elif msg.content.lower() == 'down':
-            print('222222222')
-            print('X0Y-20')
-            print('222222222')
-            s.write('X0Y-20')
+            s.write('X0Y20')
+        elif msg.content.lower().startswith('a'):
+            s.write(msg.content)
         else:
             logger.warning('incorrect msg: {0}'.format(msg.content))
         print msg.pdu_type

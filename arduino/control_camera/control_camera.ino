@@ -49,7 +49,7 @@ void loop()
       //Value of X
       String x_value = reader.substring(x_pos+1);        
       
-      if (x_value.toInt() > 0) {        
+      if (x_value.toInt() != 0) {        
         //Add to current_x_angle    
         current_x_angle += x_value.toInt();
         
@@ -71,7 +71,7 @@ void loop()
       //Value of Y
       String y_value = reader.substring(y_pos+1);  
       
-      if (y_value.toInt() > 0) {                  
+      if (y_value.toInt() != 0) {                  
         //Add to current_y_angle       
         current_y_angle += y_value.toInt();
         

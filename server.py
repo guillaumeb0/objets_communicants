@@ -104,10 +104,6 @@ def main():
             servo_id = tmp_res[0]
             addr = arduino_dict[servo_id]['ip']
             port = arduino_dict[servo_id]['port']
-            #msg = arduino_dict[servo_id]['pdu']
-            print('break')
-            print(msg.content)
-            print('break')
             sock.sendto(msg.raw_pdu, (addr, port))
 
 if __name__ == '__main__':
