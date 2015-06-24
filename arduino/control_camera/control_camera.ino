@@ -9,6 +9,20 @@ Servo servoY;
 int current_x_angle;
 int current_y_angle;
 
+
+//Bound Maximum and minimum value for a given value of angle
+int bound_min_max(int value)
+{
+  if (value > 180) {
+    value = 180;
+  }
+  else if (value < 0) {
+    value = 0;
+  }
+  
+  return value;
+}
+
 void setup() 
 { 
   
@@ -34,7 +48,8 @@ void setup()
 void loop() 
 { 
   if (Serial.available() > 0) {
-    String reader = Serial.readString();
+    String reader = Serial.readString();    
+    reader.toLowerCase();
       
     if (reader == "reset") {  
       current_x_angle = 90; 
@@ -44,48 +59,67 @@ void loop()
     }
     else {
       //Position of X in the reader string.
-      int x_pos = reader.indexOf("X");  
+      int x_pos = reader.indexOf("x");  
 
       //Value of X
-      String x_value = reader.substring(x_pos+1);        
-      
-      if (x_value.toInt() != 0) {        
-        //Add to current_x_angle    
-        current_x_angle += x_value.toInt();
-        
-        //Bound Maximum and minimum value for angle x
-        if (current_x_angle > 180) {
-          current_x_angle = 180;
-        }
-        else if (current_x_angle < 0) {
-          current_x_angle = 0;
-        }
-        
-        //Write the angle
-        servoX.write(current_x_angle);  
-      }     
-      
+      String x_value = reader.substring(x_pos+1);    
+   
       //Position of Y in the reader string.
-      int y_pos = reader.indexOf("Y");  
+      int y_pos = reader.indexOf("y");  
       
       //Value of Y
-      String y_value = reader.substring(y_pos+1);  
+      String y_value = reader.substring(y_pos+1);    
       
-      if (y_value.toInt() != 0) {                  
-        //Add to current_y_angle       
-        current_y_angle += y_value.toInt();
-        
-        //Bound Maximum and minimum value for angle y
-        if (current_y_angle > 180) {
-          current_y_angle = 180;
+      //Position of Y in the reader string.
+      int a_pos = reader.indexOf("a");  
+      
+      //Value of A
+      String a_value = reader.substring(a_pos, a_pos+1);    
+      
+      if(a_value == "a") {
+        if (reader.substring(x_pos, x_pos+1) == "x") {
+          //Set current_x_angle
+          current_x_angle = x_value.toInt();
+          
+          //Bound Maximum and minimum value for angle x
+          current_x_angle = bound_min_max(current_x_angle);
+          
+          //Write the angle
+          servoX.write(current_x_angle);          
+        }        
+        if (reader.substring(y_pos, y_pos+1) == "y") {
+          //Set current_y_angle
+          current_y_angle = y_value.toInt();
+            
+          //Bound Maximum and minimum value for angle y
+          current_y_angle = bound_min_max(current_y_angle);        
+          
+          //Write the angle
+          servoY.write(current_y_angle);      
         }
-        else if (current_y_angle < 0) {
-          current_y_angle = 0;
-        }
-        
-        //Write the angle
-        servoY.write(current_y_angle);      
       }
+      else {
+        if (x_value.toInt() != 0) {        
+          //Add to current_x_angle    
+          current_x_angle += x_value.toInt();
+          
+          //Bound Maximum and minimum value for angle x
+          current_x_angle = bound_min_max(current_x_angle);
+          
+          //Write the angle
+          servoX.write(current_x_angle);  
+        }
+        if (y_value.toInt() != 0) {                  
+          //Add to current_y_angle       
+          current_y_angle += y_value.toInt();
+          
+          //Bound Maximum and minimum value for angle y
+          current_y_angle = bound_min_max(current_y_angle);  
+          
+          //Write the angle
+          servoY.write(current_y_angle);      
+        }
+      }     
     }
   }   
   else {
