@@ -5,12 +5,14 @@ import signal
 import logging
 import json
 import time
+import threading
 
 from enum import Enum
 
 from capture_server import CamServer
 from pdu import Pdu, PduType, DeviceType, PduException
 from custom_timer import CustomTimer
+from ai_jkmg import AiJkmg
 
 # Definitions des constantes
 LOG_FILE = '/tmp/myLogServer.log'
@@ -26,85 +28,136 @@ fh = logging.FileHandler(LOG_FILE)
 formatter = logging.Formatter('%(asctime)s - %(message)s')
 fh.setFormatter(formatter)
 logger.addHandler(fh)
-
-def main():
-    # Creation list des arduino dispo
-    arduino_dict = dict()
-
-    # Création d'une socket udp
-    sock = socket.socket(socket.AF_INET,
-                          socket.SOCK_DGRAM)
-    sock.bind((HOST, UDP_PORT))
-    sock.settimeout(3)
-
-    # Création d'un serveur pour retransmettre la video
-    cam_server = CamServer('1', 'Thread-1', HOST, CAM_PORT)
-    cam_server.start()
-
-    # Def d'un handler pour gestion de sortie avec Ctrl+c
-    isRunning = True
-    def handler(signum, frame):
-        cam_server.terminate()
-        isRunning = False
-    # Affectation du handler pour un SIGINT reçu
-    signal.signal(signal.SIGINT, handler)
-
         
 
-    # Boucle d'écoute d'arrivée de datagramme UDP
-    while isRunning:
-        # Reception du datagramme
-        try:
-            print('alive:')
-            print(arduino_dict)
-            # On supprime de notre topologie les devices qui n'ont pas envoyés de
-            # messages depuis trop longtps
-            if len(arduino_dict) > 0:
-                tmp = dict()
-                current_time = time.time()
-                for k, v in arduino_dict.items():
-                    if current_time - v['last_recv_msg'] > 10:
-                        continue
-                    tmp[k] = v
-                arduino_dict = tmp
-            # Reception de datagramme
-            data, addr = sock.recvfrom(1024)
-        except socket.timeout:
-            continue
-        except socket.error as e:
-            if e.errno == 4:
-                print('Exiting prog Ctrl^c')
-                break
-            else:
-                raise
-        # Convertion du datagramme en une version + abstraite
-        try:
-            msg = Pdu(data)
-        except PduException as e:
-            logger.warning('Error: {0};pdu: {1}'.format(e.message, data))
-            continue
-        # On log le contenu
-        logger.debug(msg.raw_pdu)
-        # Mise à jour du tableau des arduino dispo
-        if not arduino_dict.has_key(msg.sender_id):
-            print('entré if not arduino_dict.has_key')
-            arduino_dict[msg.sender_id] = {
-                    'ip' : addr[0],
-                    'port' : addr[1],
-                    'pdu' : msg, 
-                    'last_recv_msg' : time.time() }
-        else:
-            arduino_dict[msg.sender_id]['last_recv_msg'] = time.time()
-        # Logique des actions à effecuter en fonction du message
-        if msg.pdu_type == PduType.CMD:
-            # Recup de la position du premier servo trouvé dans la liste
-            tmp_res = [x for x, v in arduino_dict.items() if v['pdu'].sender_type == DeviceType.SERVO_ENGINE]
-            if not tmp_res:
+
+class Main():
+
+    def __init__(self):
+        # Pour fin d'activité du start()
+        self.is_running = True
+        self.is_auto = True
+        self.prediction_received = False
+        self.predicted_nodes = list()
+
+        # Creation ia
+        self.ai = AiJkmg(0.5, 0.1, 5, 5, self)
+
+        # Dict des arduino dispo
+        self.arduino_dict = dict()
+
+        # Endpoint
+        self.sock = None
+        self.init_udp_endpoint()
+
+        # Création d'un serveur pour retransmettre la video
+        self.cam_server = CamServer('1', 'Thread-1', HOST, CAM_PORT)
+        self.cam_server.start()
+
+
+    def init_udp_endpoint(self):
+        # Création d'une socket udp
+        self.sock = socket.socket(socket.AF_INET,
+                              socket.SOCK_DGRAM)
+        self.sock.bind((HOST, UDP_PORT))
+        self.sock.settimeout(3)
+        
+
+    def start(self):
+        # Lancement de l'ia
+        self.ai.start()
+        # Boucle d'écoute d'arrivée de datagramme UDP
+        while self.is_running:
+            # Traitement predictions
+            if self.prediction_received:
+                print('I am in begin treat prediction')
+                self.prediction_received = False
+                msg = Pdu('{"type": 1, "content": "100:100:activate", "state": 1}')
+                for node in self.predicted_nodes:
+                    self.send_message(self.arduino_dict[node]['ip'], self.arduino_dict[node]['port'], msg)
+
+            # Reception du datagramme
+            try:
+                print('alive:')
+                print(self.arduino_dict)
+                print(5 * '\r\n')
+                # On supprime de notre topologie les devices qui n'ont pas envoyés de
+                # messages depuis trop longtps
+                if len(self.arduino_dict) > 0:
+                    tmp = dict()
+                    current_time = time.time()
+                    for k, v in self.arduino_dict.items():
+                        if current_time - v['last_recv_msg'] > 10:
+                            continue
+                        tmp[k] = v
+                    self.arduino_dict = tmp
+                # Reception de datagramme
+                data, addr = self.sock.recvfrom(1024)
+            except socket.timeout:
                 continue
-            servo_id = tmp_res[0]
-            addr = arduino_dict[servo_id]['ip']
-            port = arduino_dict[servo_id]['port']
-            sock.sendto(msg.raw_pdu, (addr, port))
+            except socket.error as e:
+                if e.errno == 4:
+                    print('Exiting prog Ctrl^c')
+                    break
+                else:
+                    raise
+            # Convertion du datagramme en une version + abstraite
+            try:
+                print(data)
+                msg = Pdu(data)
+            except PduException as e:
+                logger.warning('Error: {0};pdu: {1}'.format(e.message, data))
+                continue
+            # On log le contenu
+            print('log')
+            logger.debug(msg.raw_pdu)
+            # Si arduino en erreur, on ne fait pas la suite de la boucle
+            if msg.state == -1:
+                continue
+            # Mise à jour du tableau des arduino dispo
+            if not self.arduino_dict.has_key(msg.sender_id):
+                self.arduino_dict[msg.sender_id] = {
+                        'ip' : addr[0],
+                        'port' : addr[1],
+                        'pdu' : msg, 
+                        'last_recv_msg' : time.time() }
+            else:
+                self.arduino_dict[msg.sender_id]['last_recv_msg'] = time.time()
+                self.arduino_dict[msg.sender_id]['pdu'] = msg
+            # Logique des actions à effecuter en fonction du message
+            if msg.pdu_type == PduType.CMD:
+                # Recup de la position du premier servo trouvé dans la liste
+#                tmp_res = [x for x, v in self.arduino_dict.items() if v['pdu'].sender_type == DeviceType.SERVO_ENGINE]
+#                if not tmp_res:
+#                    continue
+#                servo_id = tmp_res[0]
+#                self.send_message(self.arduino_dict[servo_id]['ip'], self.arduino_dict[servo_id]['port'], msg)
+                for e in arduino_dict.keys():
+                    self.send_message(self.arduino_dict[k]['ip'], self.arduino_dict[k]['port'], msg)
+    
+    def get_arduino_dict(self):
+        return self.arduino_dict
+
+    def terminate(self):
+        self.cam_server.terminate()
+        self.ai.terminate()
+        self.is_running = False
+
+    def new_predict(self, nodes):
+        print('I am in new predict')
+        self.predicted_nodes = nodes
+        self.prediction_received = True                
+
+    def send_message(self, ip, port, pdu):
+        self.sock.sendto(pdu.raw_pdu, (ip, port))
 
 if __name__ == '__main__':
-    main()
+    main = Main()
+    # Def d'un handler pour gestion de sortie avec Ctrl+c
+    def handler(signum, frame):
+        main.terminate()
+    # Affectation du handler pour un SIGINT reçu
+    signal.signal(signal.SIGINT, handler)
+    main.start()
+
+    

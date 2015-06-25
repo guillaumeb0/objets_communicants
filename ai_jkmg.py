@@ -1,6 +1,9 @@
 #-*- encoding: UTF-8 -*-
-from pdu import Pdu, PduType, DeviceType, PduException
 import time
+import threading
+import itertools
+
+from pdu import Pdu, PduType, DeviceType, PduException
 
 class Node:
     def __init__(self, obj_id, value, obj_time):
@@ -10,108 +13,144 @@ class Node:
 
 
 class Link:
-    def __init__(self, node1, objects2):
-        self.node1 = node1
-        self.node2 = objects2
-        self.weight = 0
+    def __init__(self, i, j):
+        self.i = i
+        self.j = j
+        self.weight = 0.0
 
 
-class Graph:
-    def __init__(self):
-        self.links = []
-
-    def add_link(self, link):
-        self.links.append(link)
-
-    def remove_link(self, link):
-        self.links.remove(link)
-
-
-class AiJkmg:
-    def __init__(self, epsilon, alpha, threshold_time, threshold_weight):
+class AiJkmg(threading.Thread):
+    def __init__(self, epsilon, alpha, threshold_time, threshold_weight, server):
+        threading.Thread.__init__(self)
         self.epsilon = epsilon
         self.alpha = alpha
         self.threshold_time = threshold_time
         self.threshold_weight= threshold_weight
-        self.graph = Graph()
+        self.links = list()
+        self.server = server
+        self.terminated = False
 
-    def graph_add(self, object_dict):
+    def run(self):
+        t = time.time()
+        #while not self.terminated and time.time() - t < 60:
+        while not self.terminated:
+            print('start')
+            arduino_dict = self.server.get_arduino_dict()
+            self.learn(arduino_dict)
+            self.cheat()
+            nodes = self.predict()
+            if len(nodes) > 0:
+                self.server.new_predict(nodes)
+            time.sleep(3)
+            
+        #while not self.terminated:
+        #    print(self.server.get_arduino_dict())
+            
+
+    def terminate(self):
+        self.terminated = True
+
+    def links_update(self, arduino_dict):
         """
-        Add one or several link to the graph if the association of object are not already present.
-        :param object_dict: A dictionary containing the current objects connected to the network.
+        Add one or several link to links if the association of object are not already present.
+        :param arduino_dict: A dictionary containing the current objects connected to the network.
         :return: None.
         """
-        # Add link to the Graph only when we have at least two element in the dict
-        if len(object_dict) > 1:
-            keys = object_dict.keys()
-            n = len(keys)
-            for i in range(n):
-                # Check there is an element after
-                if i+1 < n:
-                    # Check object existence
-                    # TODO : Does this work ???
-                    #if [link for link in self.graph.links if link.node1.node_id == keys[i] and link.node2.node_id == keys[(i + 1)]:
-                        # TODO : Get value and time of each object before creating the link
-                    for link in self.graph.links:
-                        if not (link.node1.node_id == key[i] and link.node2.node_id == keys[i+1]):
-                            node1 = Node(keys[i], obj_value, object_dict[keys[i]]["last_recv_msg"])
-                            node2 = Node(keys[(i + 1)], obj_value, object_dict[keys[(i + 1)]]["last_recv_msg"])
-                            self.graph.add_link(Link(node1, node2))
+        self.links_remove(arduino_dict)
+        network_couples = self.get_network_links(arduino_dict)
+        if not (len(network_couples) > 0):
+            return
 
+        # If links is empty, then we directly add network couples in links
+        if not (len(self.links) > 0):
+            self.links = network_couples
+            return
 
-    def graph_remove(self, object_dict):
+        graph_couples = self.links
+        res = list()
+        for nc in network_couples:
+            found = False
+            for gc in graph_couples:
+                c1 =  nc.i.node_id == gc.i.node_id or nc.i.node_id == gc.j.node_id
+                c2 = nc.j.node_id == gc.i.node_id or nc.j.node_id == gc.j.node_id
+                if c1 and c2:
+                    found = True
+
+                    if nc.i.node_id == gc.i.node_id:
+                        gc.i.value = nc.i.value
+                        gc.j.value = nc.j.value
+                    else:
+                        gc.i.value = nc.j.value
+                        gc.j.value = nc.i.value
+
+            if not found:
+                res.append(nc)
+
+        self.links.extend(res)
+
+    def get_network_links(self, arduino_dict):
         """
-        Remove one or several link from the graph if they are not present in the object_dict
+        Take an arduino dict for input and give a list of link for output
+        en Link
+        """
+        datas = arduino_dict
+        couples = itertools.combinations(datas.keys(), 2)
+        res = list()
+        for c in couples:
+            i_id = c[0]
+            j_id = c[1]
+            i = Node(i_id, int(datas[i_id]['pdu'].state), datas[i_id]['last_recv_msg'])
+            j = Node(j_id, int(datas[j_id]['pdu'].state), datas[j_id]['last_recv_msg'])
+            res.append(Link(i, j))
+        return res
+
+
+
+    def links_remove(self, arduino_dict):
+        """
+        Remove one or several link from links if they are not present in the arduino_dict
         and when they have not been connected for too long.
-        :param object_dict: A dictionary containing the current objects connected to the network.
+        :param arduino_dict: A dictionary containing the current objects connected to the network.
         :return: None.
         """
-        for link in self.graph.links:
-            # Remove link not present in the object_dict with a delta time superior to the threshold time defined
-            if (link.node1.node_id not in object_dict and (link.node1.time - time.time()) > self.threshold_time) or \
-                    (link.node2.node_id not in object_dict and (link.node2.time - time.time()) > self.threshold_time):
-                self.graph.remove_link(link)
+        res = list()
+        for link in self.links:
+            # Remove link not present in the arduino_dict with a delta time superior to the threshold time defined
+            if link.i.node_id in arduino_dict.keys() \
+                and link.j.node_id in arduino_dict.keys():
+                res.append(link)
+        self.links = res
 
-    def graph_update(self, object_dict):
+    def predict(self):
         """
-        Update the Graph by adding element not present in the Graph and removing element not present in the object_dict.
-        :param object_dict: A dictionary containing the current objects connected to the network.
-        :return: None.
+        Update links and Set a list of nodes to be activated.
+        :return: A list of nodes.
         """
-        self.graph_remove(object_dict)  # Remove old element from the graph
 
-        self.graph_add(object_dict) # Add new element to the graph
+        nodes = []
 
-    def predict(self, object_dict, object0):
-        """
-        Update the Graph and Set a list of object, linked to the given object (object0), to be activated.
-        :param object_dict: A dictionary containing the current objects connected to the network.
-        :param object0: The current object activated.
-        :return: A list of objects to be activated.
-        """
-        self.graph_update(object_dict)  # Update the graph
+        # Add nodes to the list when the link weight is superior to the threshold
+        for link in self.links:
+            if link.weight > self.threshold_weight:
+                print('i.id: {0}, i.value: {1}; j.id{2}, j.value{3}').format(link.i.node_id, link.i.value, link.j.node_id, link.j.value)                
+                if link.i.value == 1 and link.j.value == 0:
+                    nodes.append(link.j.node_id)
+                elif link.i.value == 0 and link.j.value == 1:
+                    nodes.append(link.i.node_id)
 
-        objects = []
+        return nodes
 
-        # Add object to the list when the link weight is superior to the threshold
-        for link in self.graph.links:
-            if link.node1 == object0 and link.weight > self.threshold_weight:
-                objects.append(link.node1.node_id)
-            elif link.node2 == object0 and link.weight > self.threshold_weight:
-                objects.append(link.node2.node_id)
-
-        return objects
-
-    def learn(self, object_dict):
+    def learn(self, arduino_dict):
         """
         Update the Graph and Set the weight value of each link.
-        :param object_dict: A dictionary containing the current objects connected to the network.
+        :param arduino_dict: A dictionary containing the current objects connected to the network.
         :return: None.
         """
-        self.graph_update(object_dict)  # Update the graph
+        self.links_update(arduino_dict)  # Update links
 
-        for link in self.graph.links:
-            link.weight += self.epsilon * link.node1.value * link.node2.value - self.alpha
+        for link in self.links:
+            link.weight = link.weight + (self.epsilon * (link.i.value * link.j.value)) - self.alpha
+            print('W{0},{1} :{2}'.format(link.i.node_id, link.j.node_id, link.weight))
 
     def cheat(self):
         """
@@ -120,6 +159,7 @@ class AiJkmg:
             between Pressure captor (id = "01") and Light (id = "04").
         :return: None.
         """
-        for link in self.graph.links:
-            if (link.node1.node_id == "11" and link.node2 in ("02", "04")) or (link.node2.node_id == "11" and link.node1 in ("02", "04")):
-                link.weight += self.epsilon * 100 * self.threshold_weight
+        for link in self.links:
+            if (link.i.node_id == '11' and link.j.node_id in ('02', '12')) or (link.j.node_id == '11' and link.i.node_id in ('02', '12')):
+                link.weight = 100
+

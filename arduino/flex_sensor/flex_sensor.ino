@@ -1,4 +1,5 @@
 const int flexpin = 0; 
+const String prefix = "00:00:";
 
 void setup() {
   // Use the serial monitor window to help debug our sketch:
@@ -11,5 +12,6 @@ void loop() {
   // Read the position of the flex sensor :
   flexposition = analogRead(flexpin);
   //write the value with rigth format on the serial:
-  Serial.println(String(flexposition));
+  Serial.println(prefix + String(flexposition));
+  delay(800);
 }

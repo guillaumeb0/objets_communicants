@@ -19,7 +19,7 @@ class Pdu():
             self.pdu_type = PduType.LOG
         elif raw_pdu['type'] == 1:
             self.pdu_type = PduType.CMD
-        elif raw_pdu['type'] == 12
+        elif raw_pdu['type'] == 2:
             self.pdu_type = PduType.PING
         else:
             raise PduException('Unknown pdu type')
@@ -27,6 +27,7 @@ class Pdu():
         # On parse les data
         try:
             tmp = raw_pdu['content'].encode('utf-8').split(':')
+            self.state = raw_pdu['state']
             self.sender_id = tmp[0]
             if tmp[1] == '00':
                 self.sender_type = DeviceType.FLEX_SENSOR
