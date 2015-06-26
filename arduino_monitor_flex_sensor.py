@@ -46,7 +46,6 @@ while True:
             res = '0'
         msg = {'type': 0, 'content': serial_line, 'state': res}
         sock.sendto(json.dumps(msg), (SERVER_ADDR, SERVER_PORT))
-        print(json.dumps(msg), (SERVER_ADDR, SERVER_PORT))
         logger.info('from arduino: {0}: '.format(json.dumps(msg)))
     except (serial.SerialTimeoutException, serial.serialutil.SerialException):
         err = { 'type': 0, 'content': '{0}:{1}:{2}'.format(arduino_id, '00', 'arduino down'), 'state': -1 }
