@@ -5,11 +5,6 @@
 Servo servoX;
 Servo servoY;
 
-//Global variable
-int current_x_angle;
-int current_y_angle;
-
-
 //Bound Maximum and minimum value for a given value of angle
 int bound_min_max(int value)
 {
@@ -33,10 +28,6 @@ void setup()
   servoX.attach(9);
   // Enable control of a servo on pin 10:
   servoY.attach(10);
-
-  //Init
-  current_x_angle = 90; 
-  current_y_angle = 90;    
       
   //Initialise both servoto 90
   servoX.write(90);
@@ -48,14 +39,15 @@ void setup()
 void loop() 
 { 
   if (Serial.available() > 0) {
+    int current_x_angle = 0;
+    int current_y_angle = 0;
+    
     String reader = Serial.readString();    
     reader.toLowerCase();
       
-    if (reader == "reset") {  
-      current_x_angle = 90; 
-      current_y_angle = 90;       
-      servoX.write(current_x_angle);
-      servoY.write(current_y_angle);
+    if (reader == "reset") {         
+      servoX.write(90);
+      servoY.write(90);
     }
     else {
       //Position of X in the reader string.
@@ -101,7 +93,7 @@ void loop()
       else {
         if (x_value.toInt() != 0) {        
           //Add to current_x_angle    
-          current_x_angle += x_value.toInt();
+          current_x_angle = servoX.read() + x_value.toInt();
           
           //Bound Maximum and minimum value for angle x
           current_x_angle = bound_min_max(current_x_angle);
@@ -111,7 +103,7 @@ void loop()
         }
         if (y_value.toInt() != 0) {                  
           //Add to current_y_angle       
-          current_y_angle += y_value.toInt();
+          current_y_angle = servoY.read() + y_value.toInt();
           
           //Bound Maximum and minimum value for angle y
           current_y_angle = bound_min_max(current_y_angle);  
@@ -125,9 +117,9 @@ void loop()
   else {
     delay(500);
     Serial.print("02:02:X");
-    Serial.print(current_x_angle);
+    Serial.print(servoX.read());
     Serial.print("Y");
-    Serial.println(current_y_angle);
+    Serial.println(servoY.read());
   }
 } 
 
