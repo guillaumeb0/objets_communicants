@@ -31,6 +31,8 @@ class CamServer(threading.Thread):
         self.port = port
         self.max_user = max_user
         self.terminated = False
+        # Targets (observer like pattern)
+        self.targets = list()
 
     def run(self):
         print "Starting " + self.name
@@ -55,6 +57,7 @@ class CamServer(threading.Thread):
         while not self.terminated:
             try:
                 sock, addr = self.sockr.accept()
+                self.fire_user_connected()
             except socket.timeout:
                 continue
             print 'connexion etablie'
@@ -72,11 +75,30 @@ class CamServer(threading.Thread):
                     sock.send(str(len(msg)).zfill(5) + msg)
                 except socket.error as e:
                     if e.errno in (32, 104):
+                        self.fire_user_disconnected()
                         print e.strerror
                         sock.close()
                         break
                     else:
                         print e.errno
+
+    def add_connection_listener(self, target):
+        # Ajout de target (observer like pattern)
+        self.targets.append(target)
+
+    def remove_connection_listener(self, target):
+        # Retrait de target (observer like pattern)
+        self.targets.remove(target)
+
+    def fire_user_connected(self):
+        # Alerte des targets d'une connexion (observer like pattern)
+        for target in self.targets:
+            target.on_user_connected(self)
+
+    def fire_user_disconnected(self):
+        # Alerte des targets d'une deconnexion (observer like pattern)
+        for target in self.targets:
+            target.on_user_disconnected(self)
 
     def terminate(self):
         self.terminated = True

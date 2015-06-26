@@ -36,7 +36,7 @@ class Main():
     def __init__(self):
         # Pour fin d'activité du start()
         self.is_running = True
-        self.is_auto = True
+        self.mode = Mode.AUTO
         self.prediction_received = False
         self.predicted_nodes = list()
 
@@ -52,6 +52,7 @@ class Main():
 
         # Création d'un serveur pour retransmettre la video
         self.cam_server = CamServer('1', 'Thread-1', HOST, CAM_PORT)
+        self.cam_server.add_connection_listener(self)
         self.cam_server.start()
 
 
@@ -126,15 +127,33 @@ class Main():
                 self.arduino_dict[msg.sender_id]['pdu'] = msg
             # Logique des actions à effecuter en fonction du message
             if msg.pdu_type == PduType.CMD:
-                # Recup de la position du premier servo trouvé dans la liste
-#                tmp_res = [x for x, v in self.arduino_dict.items() if v['pdu'].sender_type == DeviceType.SERVO_ENGINE]
-#                if not tmp_res:
-#                    continue
-#                servo_id = tmp_res[0]
-#                self.send_message(self.arduino_dict[servo_id]['ip'], self.arduino_dict[servo_id]['port'], msg)
-                for e in arduino_dict.keys():
-                    self.send_message(self.arduino_dict[k]['ip'], self.arduino_dict[k]['port'], msg)
+                if self.mode == Mode.AUTO:
+                    for e in self.arduino_dict.keys():
+                        self.send_message(self.arduino_dict[k]['ip'], self.arduino_dict[k]['port'], msg)
+                    pass
+                else:
+                    c1 = msg.content.startswith('activate')
+                    c2 = msg.content.startswith('desactivate')
+                    if not (c1 or c2):
+                        continue
+                    # Recup de la position du premier servo trouvé dans la liste
+                    tmp_res = [x for x, v in self.arduino_dict.items() if v['pdu'].sender_type == DeviceType.SERVO_ENGINE]
+                    if not tmp_res:
+                        continue
+                    servo_id = tmp_res[0]
+                    self.send_message(self.arduino_dict[servo_id]['ip'], self.arduino_dict[servo_id]['port'], msg)
     
+
+    def on_user_connected(self, source):
+        # Sur connexion d'un utilisateur, on passe en mode manuel
+        # pour le pilotage de la camera
+        self.mode = Mode.MANUAL
+
+    def on_user_disconnected(self, source):
+        # Sur connexion d'un utilisateur, on passe en mode manuel
+        # pour le pilotage de la camera
+        self.mode = Mode.AUTO
+
     def get_arduino_dict(self):
         return self.arduino_dict
 
@@ -150,6 +169,10 @@ class Main():
 
     def send_message(self, ip, port, pdu):
         self.sock.sendto(pdu.raw_pdu, (ip, port))
+
+class Mode(Enum):
+    AUTO = 0
+    MANUAL = 1
 
 if __name__ == '__main__':
     main = Main()
